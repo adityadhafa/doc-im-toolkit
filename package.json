@@ -1,0 +1,20 @@
+{
+  "name": "toolkit-dokumen-gambar",
+  "version": "1.0.0",
+  "description": "Toolkit dokumen & gambar untuk kebutuhan administrasi (lamaran kerja, CPNS, pendaftaran kuliah) — 100% diproses di browser, tidak ada file yang dikirim ke server.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^4.6.82",
+    "jszip": "^3.10.1"
+  },
+  "devDependencies": {
+    "vite": "^5.4.10"
+  }
+}

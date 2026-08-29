@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Toolkit dokumen & gambar untuk keperluan administrasi (lamaran kerja, CPNS, pendaftaran kuliah). Semua proses berjalan di perangkat Anda, tidak ada file yang diunggah ke server." />
+  <meta name="color-scheme" content="light dark" />
+  <title>Toolkit Dokumen & Gambar — Diproses Lokal di Perangkat Anda</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+</head>
+<body>
+  <a href="#konten" class="skip-link">Langsung ke konten</a>
+
+  <header class="app-header">
+    <div class="app-header__inner">
+      <div class="brand">
+        <span class="brand__mark" aria-hidden="true">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="3" y="3" width="8" height="8" rx="1.5" stroke="currentColor" stroke-width="1.8"/>
+            <rect x="13" y="3" width="8" height="8" rx="1.5" stroke="currentColor" stroke-width="1.8"/>
+            <rect x="3" y="13" width="8" height="8" rx="1.5" stroke="currentColor" stroke-width="1.8"/>
+            <rect x="13" y="13" width="8" height="8" rx="1.5" stroke="currentColor" stroke-width="1.8"/>
+          </svg>
+        </span>
+        <div class="brand__text">
+          <span class="brand__title">Toolkit Dokumen &amp; Gambar</span>
+          <span class="brand__subtitle">untuk berkas administrasi Indonesia</span>
+        </div>
+      </div>
+      <div class="privacy-pill" id="privacyPill" title="Tidak ada file yang dikirim ke server manapun">
+        <span class="privacy-pill__dot" aria-hidden="true"></span>
+        <span class="privacy-pill__text">Berjalan 100% di perangkat ini</span>
+      </div>
+    </div>
+  </header>
+
+  <nav class="tabs" aria-label="Pilih alat">
+    <div class="tabs__inner" id="tabList" role="tablist"></div>
+  </nav>
+
+  <main id="konten" class="app-main">
+    <div id="toolRoot"></div>
+  </main>
+
+  <footer class="app-footer">
+    <div class="app-footer__inner">
+      <p>
+        <strong>Kenapa tidak ada progress upload?</strong> Karena memang tidak ada yang diunggah.
+        File Anda dibaca dan diproses langsung oleh browser (JavaScript) di perangkat ini,
+        lalu hasilnya Anda unduh dari perangkat yang sama. Anda bisa memeriksanya sendiri lewat
+        tab <em>Network</em> di DevTools browser — tidak akan ada request keluar berisi file Anda.
+      </p>
+      <p class="app-footer__meta">Dibuat sebagai alternatif privasi dari tools kompres/convert online yang mengunggah file ke server.</p>
+    </div>
+  </footer>
+
+  <div id="toastRoot" class="toast-root" aria-live="polite"></div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
