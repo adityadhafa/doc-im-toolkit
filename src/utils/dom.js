@@ -24,8 +24,10 @@ export function clear(node) {
   while (node.firstChild) node.removeChild(node.firstChild);
 }
 
-export function icon(svgInner, size = 18) {
+export function icon(svgInner, size = 18, className) {
   const span = document.createElement('span');
   span.innerHTML = `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${svgInner}</svg>`;
-  return span.firstElementChild;
+  const svg = span.firstElementChild;
+  if (className) svg.setAttribute('class', className);
+  return svg;
 }
