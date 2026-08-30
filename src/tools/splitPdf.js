@@ -5,6 +5,7 @@ import { progressBar, alertBox } from '../utils/ui.js';
 import { formatBytes } from '../utils/format.js';
 import { downloadBlob, createObjectUrlPool } from '../utils/download.js';
 import { getPdfLib } from '../utils/pdfEngine.js';
+import { parseRangesFromText, sanitizeFilenamePart } from '../utils/parseRanges.js';
 import { showToast } from '../utils/toast.js';
 
 const yieldFrame = () => new Promise((r) => setTimeout(r, 0));
@@ -128,7 +129,7 @@ export function mount(container) {
     for (let i = 0; i < count; i += 1) {
       const size = base + (i < extra ? 1 : 0) || 1;
       const end = Math.min(pages, start + size - 1);
-      out.push({ from: start, to: Math.max(start, end) });
+      out.push({ from: start, to: Math.max(start, end), name: `Bagian ${i + 1}` });
       start = end + 1;
     }
     return out;
@@ -145,7 +146,7 @@ export function mount(container) {
         const remainingPages = Math.max(1, totalPages - start + 1);
         const size = Math.max(1, Math.round(remainingPages / remainingParts));
         const end = Math.min(totalPages || start + size - 1, start + size - 1);
-        ranges.push({ from: start, to: Math.max(start, end) });
+        ranges.push({ from: start, to: Math.max(start, end), name: `Bagian ${ranges.length + 1}` });
         start = end + 1;
       }
     } else {
@@ -157,6 +158,13 @@ export function mount(container) {
   function renderRanges() {
     clear(rangesListEl);
     ranges.forEach((r, idx) => {
+      const nameInput = el('input', {
+        type: 'text', value: r.name || `Bagian ${idx + 1}`,
+        placeholder: `Nama bagian ${idx + 1}`,
+        'aria-label': `Bagian ${idx + 1}: nama bab`,
+        style: 'max-width:220px;',
+        onInput: (e) => { ranges[idx].name = e.target.value; },
+      });
       const fromInput = el('input', {
         type: 'number', min: '1', max: String(totalPages), value: String(r.from),
         'aria-label': `Bagian ${idx + 1}: halaman awal`,
@@ -169,9 +177,9 @@ export function mount(container) {
       });
       const metaEl = el('span', { class: 'mono', style: 'font-size:11.5px; color:var(--ink-faint); white-space:nowrap;' }, pageCountLabel(r));
 
-      const row = el('div', { class: 'file-row', style: 'flex-wrap:wrap;' }, [
-        el('div', { style: 'font-weight:700; font-size:12.5px; min-width:64px;' }, `Bagian ${idx + 1}`),
-        el('div', { class: 'input-row', style: 'flex:1; min-width:200px;' }, [
+      const row = el('div', { class: 'file-row', style: 'flex-wrap:wrap; align-items:center;' }, [
+        nameInput,
+        el('div', { class: 'input-row', style: 'flex:1; min-width:180px;' }, [
           fromInput,
           el('span', { class: 'mono', style: 'color:var(--ink-faint);' }, '—'),
           toInput,
@@ -245,7 +253,8 @@ export function mount(container) {
         const copied = await outDoc.copyPages(srcDoc, indices);
         copied.forEach((pg) => outDoc.addPage(pg));
         const outBytes = await outDoc.save();
-        outputs.push({ bytes: outBytes, from: r.from, to: r.to, pages: indices.length, filename: `${baseName}-bagian${i + 1}-hal${r.from}-${r.to}.pdf` });
+        const safeName = sanitizeFilenamePart(r.name, `bagian${i + 1}`);
+        outputs.push({ bytes: outBytes, from: r.from, to: r.to, pages: indices.length, filename: `${baseName}-${safeName}-hal${r.from}-${r.to}.pdf` });
         await yieldFrame();
       }
       bar.done(`Selesai — ${outputs.length} file dibuat`);
@@ -322,6 +331,54 @@ export function mount(container) {
     ]);
   }
 
+  const pasteText = el('textarea', {
+    rows: 6,
+    placeholder:
+      'Bab 1: Pendahuluan — 1-15\nBab 2, Metodologi, 16, 40\n| Bab 3 - Hasil | 41 | 70 |',
+    style: 'width:100%; resize:vertical; border:1.5px solid var(--border-strong); background:var(--surface-2); color:var(--ink); border-radius:8px; padding:11px 12px; font-size:13px; font-family:var(--font-mono); line-height:1.6;',
+    'aria-label': 'Tempel daftar bab dan rentang halaman',
+  });
+  const applyPasteBtn = el('button', { class: 'btn btn-secondary', type: 'button', style: 'margin-top:10px;' }, 'Terapkan ke Rentang Halaman');
+  const pasteErrorsEl = el('div', { style: 'margin-top:10px;' });
+
+  applyPasteBtn.addEventListener('click', () => {
+    if (!totalPages) {
+      showToast('Upload PDF dulu sebelum menempel daftar bab.', 'error');
+      return;
+    }
+    clear(pasteErrorsEl);
+    const { ranges: parsed, skipped } = parseRangesFromText(pasteText.value);
+    if (!parsed.length) {
+      pasteErrorsEl.appendChild(
+        alertBox(
+          'Tidak ada baris yang bisa dikenali sebagai rentang halaman. Pastikan tiap baris memuat nama bab dan dua angka halaman, mis. "Bab 1: Pendahuluan — 1-15".',
+          { title: 'Teks belum bisa dibaca' }
+        )
+      );
+      return;
+    }
+    ranges = parsed;
+    partsInput.value = String(ranges.length);
+    renderRanges();
+    showToast(
+      skipped > 0
+        ? `${parsed.length} bagian diterapkan, ${skipped} baris dilewati karena tidak dikenali.`
+        : `${parsed.length} bagian berhasil diterapkan dari teks.`
+    );
+  });
+
+  const pasteCard = el('div', { class: 'card', style: 'margin-bottom:16px;' }, [
+    el('div', { class: 'field' }, [
+      el('label', {}, 'Atau Tempel Daftar Bab (Opsional)'),
+      pasteText,
+      el('div', { class: 'field-hint' },
+        'Satu baris per bab. Boleh format tabel markdown, dipisah koma/tab, atau kalimat bebas — yang penting ada dua angka halaman per baris. Hasil parsing akan mengisi rentang di bawah, dan tetap bisa diedit sebelum diproses.'
+      ),
+      applyPasteBtn,
+      pasteErrorsEl,
+    ]),
+  ]);
+
   const configCard = el('div', { class: 'card' }, [
     el('div', { class: 'field' }, [
       el('label', {}, 'Jumlah File Hasil Split'),
@@ -342,6 +399,7 @@ export function mount(container) {
     ]),
     processBtn,
   ]);
+  configWrap.appendChild(pasteCard);
   configWrap.appendChild(configCard);
 
   partsInput.addEventListener('change', () => {
