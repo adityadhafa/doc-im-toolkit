@@ -1,7 +1,7 @@
 import { el, clear, icon } from '../utils/dom.js';
 import { createDropzone } from '../utils/dropzone.js';
 import { validateFiles, describePdfError } from '../utils/validate.js';
-import { fileRow, progressBar, alertBox, downloadButton, emptyState } from '../utils/ui.js';
+import { fileRow, progressBar, alertBox, resultPanel, emptyState } from '../utils/ui.js';
 import { formatBytes } from '../utils/format.js';
 import { downloadBlob, createObjectUrlPool } from '../utils/download.js';
 import { loadImageElement } from '../utils/imageFile.js';
@@ -43,8 +43,10 @@ export function mount(container) {
     dropzone = createDropzone({
       accept: mode === 'to-pdf' ? 'image/jpeg,image/png,image/webp' : 'application/pdf',
       multiple: true,
-      title: mode === 'to-pdf' ? 'Seret & lepas gambar di sini' : 'Seret & lepas PDF di sini',
-      hint: mode === 'to-pdf' ? 'Setiap gambar akan jadi satu halaman PDF, urut sesuai pilihan' : 'Setiap halaman PDF akan jadi satu file gambar',
+      title: mode === 'to-pdf' ? 'Tarik & lepas gambar di sini' : 'Tarik & lepas PDF di sini',
+      hint: mode === 'to-pdf' ? 'Setiap gambar jadi satu halaman, urutan bisa diatur' : 'Setiap halaman PDF jadi satu file gambar',
+      buttonLabel: mode === 'to-pdf' ? 'Pilih Gambar' : 'Pilih File PDF',
+      maxHint: 'Maksimal 80 MB per file',
       onFiles: handleFiles,
     });
     dropzoneWrap.appendChild(dropzone);
@@ -145,11 +147,19 @@ export function mount(container) {
       const outBytes = await outDoc.save();
       bar.done(`Selesai — ${queue.length} halaman`);
       const blob = new Blob([outBytes], { type: 'application/pdf' });
-      const filename = 'gabungan-gambar.pdf';
+      const totalBefore = queue.reduce((sum, q) => sum + q.file.size, 0);
       clear(card);
+      card.className = '';
       card.append(
-        el('div', { style: 'font-weight:700; margin-bottom:8px; font-size:13.5px;' }, `PDF berhasil dibuat · ${queue.length} halaman · ${formatBytes(outBytes.byteLength)}`),
-        el('div', { style: 'margin-top:4px;' }, [downloadButton(`Unduh ${filename}`, () => downloadBlob(blob, filename))])
+        resultPanel({
+          title: 'PDF Berhasil Dibuat!',
+          subtitle: `${queue.length} gambar digabung jadi satu PDF ✨`,
+          beforeBytes: totalBefore,
+          afterBytes: outBytes.byteLength,
+          filenameBase: 'gabungan-gambar',
+          filenameExt: '.pdf',
+          onDownload: (filename) => downloadBlob(blob, filename),
+        })
       );
     } catch (err) {
       clear(card);

@@ -1,7 +1,7 @@
 import { el, clear } from '../utils/dom.js';
 import { createDropzone } from '../utils/dropzone.js';
 import { validateFiles } from '../utils/validate.js';
-import { fileRow, progressBar, alertBox, compareCard, downloadButton, metaLine } from '../utils/ui.js';
+import { fileRow, progressBar, alertBox, resultPanel } from '../utils/ui.js';
 import { downloadBlob, createObjectUrlPool } from '../utils/download.js';
 import { runImageTask } from '../utils/workerClient.js';
 import { showToast } from '../utils/toast.js';
@@ -55,8 +55,10 @@ export function mount(container) {
   const dropzone = createDropzone({
     accept: 'image/jpeg,image/png,image/webp',
     multiple: true,
-    title: 'Seret & lepas foto di sini',
-    hint: 'atau klik untuk memilih foto yang akan dicetak',
+    title: 'Tarik & lepas foto di sini',
+    hint: 'atau — foto yang akan dicetak',
+    buttonLabel: 'Pilih Foto',
+    maxHint: 'Maksimal 60 MB per file',
     onFiles: handleFiles,
   });
 
@@ -116,7 +118,6 @@ export function mount(container) {
       card.appendChild(bar.node);
 
       try {
-        const beforeUrl = urls.create(item.file);
         const result = await runImageTask(
           'resize-exact',
           { file: item.file, targetW, targetH, mimeType: 'image/jpeg', quality: 0.92, background: '#ffffff' },
@@ -126,19 +127,23 @@ export function mount(container) {
 
         const blob = new Blob([result.buffer], { type: result.mimeType });
         const afterUrl = urls.create(blob);
-        const filename = `${item.file.name.replace(/\.[^.]+$/, '')}-${cm.w}x${cm.h}cm.jpg`;
+        const baseName = item.file.name.replace(/\.[^.]+$/, '');
 
         clear(card);
+        card.className = '';
         card.append(
-          el('div', { style: 'font-weight:700; margin-bottom:10px; font-size:13.5px;' }, item.file.name),
-          el('div', { class: 'alert alert--info', style: 'margin-bottom:12px;' }, `Bagian tengah foto dipotong otomatis agar pas pada rasio ${cm.w}:${cm.h}. Pastikan wajah berada di tengah foto asli sebelum resize.`),
-          compareCard({
-            beforeUrl,
-            afterUrl,
-            beforeMeta: metaLine(item.file.size, result.sourceWidth, result.sourceHeight),
-            afterMeta: `${metaLine(result.size, result.width, result.height)} · ${dpi} DPI`,
-          }),
-          el('div', { style: 'margin-top:12px;' }, [downloadButton(`Unduh ${filename}`, () => downloadBlob(blob, filename))])
+          resultPanel({
+            title: 'Resize Selesai!',
+            subtitle: `Ukuran cetak ${cm.w}×${cm.h} cm siap ✨`,
+            beforeBytes: item.file.size,
+            afterBytes: result.size,
+            previewUrl: afterUrl,
+            previewMeta: `${targetW}×${targetH}px · ${dpi} DPI`,
+            filenameBase: `${baseName}-${cm.w}x${cm.h}cm`,
+            filenameExt: '.jpg',
+            note: el('div', { class: 'alert alert--info' }, `Bagian tengah foto dipotong otomatis agar pas pada rasio ${cm.w}:${cm.h}. Pastikan wajah berada di tengah foto asli sebelum resize.`),
+            onDownload: (filename) => downloadBlob(blob, filename),
+          })
         );
       } catch (err) {
         clear(card);

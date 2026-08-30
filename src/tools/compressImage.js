@@ -1,7 +1,7 @@
 import { el, clear, icon } from '../utils/dom.js';
 import { createDropzone } from '../utils/dropzone.js';
 import { validateFiles } from '../utils/validate.js';
-import { fileRow, progressBar, alertBox, summaryRow, compareCard, downloadButton, emptyState, metaLine } from '../utils/ui.js';
+import { fileRow, progressBar, alertBox, resultPanel } from '../utils/ui.js';
 import { formatBytes, parseSizeToBytes } from '../utils/format.js';
 import { downloadBlob, createObjectUrlPool } from '../utils/download.js';
 import { runImageTask } from '../utils/workerClient.js';
@@ -27,8 +27,10 @@ export function mount(container) {
   const dropzone = createDropzone({
     accept: 'image/jpeg,image/png,image/webp',
     multiple: true,
-    title: 'Seret & lepas foto/scan di sini',
-    hint: 'atau klik untuk memilih — JPG, PNG, atau WEBP',
+    title: 'Tarik & lepas foto/scan di sini',
+    hint: 'atau — JPG, PNG, atau WEBP',
+    buttonLabel: 'Pilih Foto',
+    maxHint: 'Maksimal 60 MB per file',
     onFiles: handleFiles,
   });
 
@@ -90,25 +92,29 @@ export function mount(container) {
 
         const blob = new Blob([result.buffer], { type: result.mimeType });
         const afterUrl = urls.create(blob);
-        const filename = renameWithSuffix(item.file.name, '-kompres', result.mimeType);
+        const ext = result.mimeType === 'image/png' ? 'png' : result.mimeType === 'image/webp' ? 'webp' : 'jpg';
+        const baseName = item.file.name.replace(/\.[^.]+$/, '');
 
         clear(card);
+        card.className = '';
         card.append(
-          el('div', { style: 'font-weight:700; margin-bottom:10px; font-size:13.5px;' }, item.file.name),
-          summaryRow(item.file.size, result.size),
-          compareCard({
-            beforeUrl,
-            afterUrl,
-            beforeMeta: metaLine(item.file.size, result.sourceWidth, result.sourceHeight),
-            afterMeta: metaLine(result.size, result.width, result.height),
-          }),
-          result.size > targetBytes
-            ? alertBox(
-                `Ukuran belum bisa turun sampai target tanpa merusak kualitas gambar secara drastis. Hasil terbaik: ${formatBytes(result.size)}. Coba turunkan target sedikit lagi atau gunakan resolusi lebih kecil.`,
-                { title: 'Mendekati target, belum tepat tercapai' }
-              )
-            : null,
-          el('div', { style: 'margin-top:12px;' }, [downloadButton(`Unduh ${filename}`, () => downloadBlob(blob, filename))])
+          resultPanel({
+            title: 'Kompresi Selesai!',
+            subtitle: 'Foto berhasil dikompresi ✨',
+            beforeBytes: item.file.size,
+            afterBytes: result.size,
+            previewUrl: afterUrl,
+            previewMeta: `${result.width}×${result.height}px · ${formatBytes(result.size)}`,
+            filenameBase: `${baseName}-kompres`,
+            filenameExt: `.${ext}`,
+            note: result.size > targetBytes
+              ? alertBox(
+                  `Ukuran belum bisa turun sampai target tanpa merusak kualitas gambar secara drastis. Hasil terbaik: ${formatBytes(result.size)}. Coba turunkan target sedikit lagi atau gunakan resolusi lebih kecil.`,
+                  { title: 'Mendekati target, belum tepat tercapai' }
+                )
+              : null,
+            onDownload: (filename) => downloadBlob(blob, filename),
+          })
         );
       } catch (err) {
         clear(card);
@@ -144,10 +150,4 @@ export function mount(container) {
   return function unmount() {
     urls.revokeAll();
   };
-}
-
-function renameWithSuffix(name, suffix, mimeType) {
-  const ext = mimeType === 'image/png' ? 'png' : mimeType === 'image/webp' ? 'webp' : 'jpg';
-  const base = name.replace(/\.[^.]+$/, '');
-  return `${base}${suffix}.${ext}`;
 }

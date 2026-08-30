@@ -1,7 +1,7 @@
 import { el, clear } from '../utils/dom.js';
 import { createDropzone } from '../utils/dropzone.js';
 import { validateFiles, describePdfError } from '../utils/validate.js';
-import { fileRow, progressBar, alertBox, summaryRow, compareCard, downloadButton, metaLine } from '../utils/ui.js';
+import { fileRow, progressBar, alertBox, resultPanel } from '../utils/ui.js';
 import { formatBytes, parseSizeToBytes } from '../utils/format.js';
 import { downloadBlob, createObjectUrlPool } from '../utils/download.js';
 import { openPdfForRender, renderPageToCanvas, canvasToBlob, getPdfLib, friendlyPdfOpenError } from '../utils/pdfEngine.js';
@@ -29,8 +29,10 @@ export function mount(container) {
   const dropzone = createDropzone({
     accept: 'application/pdf',
     multiple: true,
-    title: 'Seret & lepas PDF di sini',
-    hint: 'atau klik untuk memilih file .pdf',
+    title: 'Tarik & lepas PDF di sini',
+    hint: 'atau',
+    buttonLabel: 'Pilih File PDF',
+    maxHint: 'Maksimal 80 MB per file',
     onFiles: handleFiles,
   });
 
@@ -79,27 +81,27 @@ export function mount(container) {
         bar.done(`Selesai — ${out.pages} halaman`);
 
         const blob = new Blob([out.bytes], { type: 'application/pdf' });
-        const filename = `${item.file.name.replace(/\.pdf$/i, '')}-kompres.pdf`;
 
         clear(card);
+        card.className = '';
         card.append(
-          el('div', { style: 'font-weight:700; margin-bottom:10px; font-size:13.5px;' }, `${item.file.name} · ${out.pages} halaman`),
-          summaryRow(item.file.size, out.bytes.byteLength),
-          out.previewBefore && out.previewAfter
-            ? compareCard({
-                beforeUrl: out.previewBefore,
-                afterUrl: out.previewAfter,
-                beforeMeta: 'Halaman 1 (asli)',
-                afterMeta: 'Halaman 1 (hasil kompres)',
-              })
-            : null,
-          out.bytes.byteLength > targetBytes
-            ? alertBox(
-                `Ukuran belum bisa turun sampai target tanpa membuat teks/foto terlalu buram. Hasil terbaik: ${formatBytes(out.bytes.byteLength)}. Untuk target lebih kecil lagi, pertimbangkan memisah PDF per beberapa halaman.`,
-                { title: 'Mendekati target, belum tepat tercapai' }
-              )
-            : null,
-          el('div', { style: 'margin-top:12px;' }, [downloadButton(`Unduh ${filename}`, () => downloadBlob(blob, filename))])
+          resultPanel({
+            title: 'Kompresi Selesai!',
+            subtitle: `File berhasil dikompresi · ${out.pages} halaman ✨`,
+            beforeBytes: item.file.size,
+            afterBytes: out.bytes.byteLength,
+            previewUrl: out.previewAfter,
+            previewMeta: `${out.pages} halaman · ${formatBytes(out.bytes.byteLength)}`,
+            filenameBase: `${item.file.name.replace(/\.pdf$/i, '')}-kompres`,
+            filenameExt: '.pdf',
+            note: out.bytes.byteLength > targetBytes
+              ? alertBox(
+                  `Ukuran belum bisa turun sampai target tanpa membuat teks/foto terlalu buram. Hasil terbaik: ${formatBytes(out.bytes.byteLength)}. Untuk target lebih kecil lagi, pertimbangkan memisah PDF per beberapa halaman.`,
+                  { title: 'Mendekati target, belum tepat tercapai' }
+                )
+              : null,
+            onDownload: (filename) => downloadBlob(blob, filename),
+          })
         );
       } catch (err) {
         clear(card);

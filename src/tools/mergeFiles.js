@@ -1,7 +1,7 @@
 import { el, clear } from '../utils/dom.js';
 import { createDropzone } from '../utils/dropzone.js';
 import { validateFiles, describePdfError } from '../utils/validate.js';
-import { fileRow, progressBar, alertBox, downloadButton, emptyState } from '../utils/ui.js';
+import { fileRow, progressBar, alertBox, resultPanel, emptyState } from '../utils/ui.js';
 import { formatBytes } from '../utils/format.js';
 import { downloadBlob, createObjectUrlPool } from '../utils/download.js';
 import { loadImageElement } from '../utils/imageFile.js';
@@ -24,8 +24,10 @@ export function mount(container) {
   const dropzone = createDropzone({
     accept: 'image/jpeg,image/png,image/webp,application/pdf',
     multiple: true,
-    title: 'Seret & lepas gambar dan/atau PDF di sini',
-    hint: 'Boleh campur — gambar dan PDF akan digabung berurutan',
+    title: 'Tarik & lepas gambar dan/atau PDF di sini',
+    hint: 'Boleh campur — akan digabung berurutan',
+    buttonLabel: 'Pilih File',
+    maxHint: 'Maksimal 80 MB per file',
     onFiles: handleFiles,
   });
 
@@ -119,11 +121,19 @@ export function mount(container) {
       bar.done(`Selesai — ${outDoc.getPageCount()} halaman total`);
 
       const blob = new Blob([outBytes], { type: 'application/pdf' });
-      const filename = 'berkas-gabungan.pdf';
+      const totalBefore = queue.reduce((sum, q) => sum + q.file.size, 0);
       clear(card);
+      card.className = '';
       card.append(
-        el('div', { style: 'font-weight:700; margin-bottom:8px; font-size:13.5px;' }, `PDF gabungan siap · ${outDoc.getPageCount()} halaman · ${formatBytes(outBytes.byteLength)}`),
-        el('div', { style: 'margin-top:4px;' }, [downloadButton(`Unduh ${filename}`, () => downloadBlob(blob, filename))])
+        resultPanel({
+          title: 'Penggabungan Selesai!',
+          subtitle: `${queue.length} file digabung jadi ${outDoc.getPageCount()} halaman ✨`,
+          beforeBytes: totalBefore,
+          afterBytes: outBytes.byteLength,
+          filenameBase: 'berkas-gabungan',
+          filenameExt: '.pdf',
+          onDownload: (filename) => downloadBlob(blob, filename),
+        })
       );
     } catch (err) {
       clear(card);
