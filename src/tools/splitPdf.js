@@ -103,6 +103,8 @@ export function mount(container) {
       renderRanges();
       configWrap.style.display = 'block';
       processBtn.disabled = false;
+      applyPasteBtn.disabled = false;
+      pasteHint.textContent = 'Satu baris per bab. Boleh format tabel markdown, dipisah koma/tab, atau kalimat bebas — yang penting ada dua angka halaman per baris. Hasil parsing akan mengisi rentang di bawah, dan tetap bisa diedit sebelum diproses.';
     } catch (err) {
       clear(errorsEl);
       errorsEl.appendChild(alertBox(describePdfError(err, file.name), { title: `Gagal membuka "${file.name}"` }));
@@ -117,6 +119,8 @@ export function mount(container) {
     fileInfoWrap.style.display = 'none';
     configWrap.style.display = 'none';
     processBtn.disabled = true;
+    applyPasteBtn.disabled = true;
+    pasteHint.textContent = 'Upload PDF dulu di atas, lalu tombol ini aktif. Satu baris per bab. Boleh format tabel markdown, dipisah koma/tab, atau kalimat bebas — yang penting ada dua angka halaman per baris. Hasil parsing akan mengisi rentang di bawah, dan tetap bisa diedit sebelum diproses.';
     clear(resultsEl);
   }
 
@@ -338,7 +342,10 @@ export function mount(container) {
     style: 'width:100%; resize:vertical; border:1.5px solid var(--border-strong); background:var(--surface-2); color:var(--ink); border-radius:8px; padding:11px 12px; font-size:13px; font-family:var(--font-mono); line-height:1.6;',
     'aria-label': 'Tempel daftar bab dan rentang halaman',
   });
-  const applyPasteBtn = el('button', { class: 'btn btn-secondary', type: 'button', style: 'margin-top:10px;' }, 'Terapkan ke Rentang Halaman');
+  const applyPasteBtn = el('button', { class: 'btn btn-secondary', type: 'button', style: 'margin-top:10px;', disabled: true }, 'Terapkan ke Rentang Halaman');
+  const pasteHint = el('div', { class: 'field-hint' },
+    'Upload PDF dulu di atas, lalu tombol ini aktif. Satu baris per bab. Boleh format tabel markdown, dipisah koma/tab, atau kalimat bebas — yang penting ada dua angka halaman per baris. Hasil parsing akan mengisi rentang di bawah, dan tetap bisa diedit sebelum diproses.'
+  );
   const pasteErrorsEl = el('div', { style: 'margin-top:10px;' });
 
   applyPasteBtn.addEventListener('click', () => {
@@ -369,11 +376,9 @@ export function mount(container) {
 
   const pasteCard = el('div', { class: 'card', style: 'margin-bottom:16px;' }, [
     el('div', { class: 'field' }, [
-      el('label', {}, 'Atau Tempel Daftar Bab (Opsional)'),
+      el('label', {}, 'Punya Daftar Bab? Tempel di Sini (Opsional)'),
       pasteText,
-      el('div', { class: 'field-hint' },
-        'Satu baris per bab. Boleh format tabel markdown, dipisah koma/tab, atau kalimat bebas — yang penting ada dua angka halaman per baris. Hasil parsing akan mengisi rentang di bawah, dan tetap bisa diedit sebelum diproses.'
-      ),
+      pasteHint,
       applyPasteBtn,
       pasteErrorsEl,
     ]),
@@ -399,7 +404,6 @@ export function mount(container) {
     ]),
     processBtn,
   ]);
-  configWrap.appendChild(pasteCard);
   configWrap.appendChild(configCard);
 
   partsInput.addEventListener('change', () => {
@@ -421,6 +425,7 @@ export function mount(container) {
   container.append(
     el('div', { class: 'tool-grid' }, [
       el('div', {}, [dropzoneWrap, errorsEl, fileInfoWrap]),
+      pasteCard,
       configWrap,
     ]),
     resultsEl
