@@ -9,13 +9,15 @@ pernah dikirim ke server manapun. Ini alternatif privasi dari tools online sejen
 
 1. **Kompres PDF** ke target ukuran (KB/MB) — PDF dirender jadi gambar per halaman, dikompres,
    lalu disusun ulang jadi PDF baru (cocok untuk PDF hasil scan).
-2. **Kompres & Resize Gambar** ke target ukuran KB.
-3. **Gambar ⇄ PDF** — gambar ke PDF (multi-halaman) dan PDF ke gambar (JPG/PNG), termasuk
+2. **Pisah PDF** jadi beberapa file — tentukan jumlah bagian dan rentang halaman (dari–sampai)
+   untuk tiap bagian, dengan opsi "bagi rata otomatis".
+3. **Kompres & Resize Gambar** ke target ukuran KB.
+4. **Gambar ⇄ PDF** — gambar ke PDF (multi-halaman) dan PDF ke gambar (JPG/PNG), termasuk
    PDF berhalaman banyak (hasil di-zip otomatis).
-4. **Ukuran Cetak Foto** — preset 3×4, 4×6, 2×3 cm + custom, dengan pilihan DPI cetak.
-5. **Gabung ke PDF** — gabungkan gambar & PDF (boleh campur) jadi satu file PDF, urutan bisa
+5. **Ukuran Cetak Foto** — preset 3×4, 4×6, 2×3 cm + custom, dengan pilihan DPI cetak.
+6. **Gabung ke PDF** — gabungkan gambar & PDF (boleh campur) jadi satu file PDF, urutan bisa
    diatur.
-6. **Ubah Format Gambar** — konversi JPG/PNG/WEBP, latar transparan PNG otomatis diisi putih
+7. **Ubah Format Gambar** — konversi JPG/PNG/WEBP, latar transparan PNG otomatis diisi putih
    saat dikonversi ke JPG.
 
 ## Stack Teknis
@@ -40,6 +42,7 @@ pernah dikirim ke server manapun. Ini alternatif privasi dari tools online sejen
     ├── style.css                # Design system (tanpa Google Fonts / CDN eksternal)
     ├── tools/
     │   ├── compressPdf.js
+    │   ├── splitPdf.js
     │   ├── compressImage.js
     │   ├── imagePdfConvert.js
     │   ├── resizePrint.js

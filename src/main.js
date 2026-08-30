@@ -12,6 +12,8 @@ const ICONS = {
     '<rect x="7" y="3" width="10" height="14" rx="1.2" stroke="currentColor" stroke-width="1.6"/><path d="M4 9v10a1 1 0 0 0 1 1h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>',
   merge:
     '<rect x="3" y="4" width="9" height="12" rx="1.3" stroke="currentColor" stroke-width="1.6"/><rect x="9" y="9" width="9" height="12" rx="1.3" fill="var(--surface,#fff)" stroke="currentColor" stroke-width="1.6"/>',
+  splitPdf:
+    '<rect x="3" y="4" width="8" height="16" rx="1.4" stroke="currentColor" stroke-width="1.6"/><rect x="13" y="4" width="8" height="16" rx="1.4" stroke="currentColor" stroke-width="1.6"/><path d="M12 9v6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="2 2"/>',
   convertFormat:
     '<path d="M4 7a5 5 0 0 1 5-5h1M20 17a5 5 0 0 1-5 5h-1" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="m7 4-2 2 2 2M17 20l2-2-2-2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><text x="4" y="15" font-size="7" fill="currentColor" font-family="monospace">JPG</text><text x="12" y="21" font-size="7" fill="currentColor" font-family="monospace">PNG</text>',
 };
@@ -23,6 +25,13 @@ const TOOLS = [
     description: 'Perkecil ukuran file PDF sampai mendekati target ukuran yang Anda tentukan (KB/MB) — cocok untuk upload berkas CPNS/lamaran yang ada batas ukurannya.',
     icon: ICONS.compressPdf,
     load: () => import('./tools/compressPdf.js'),
+  },
+  {
+    id: 'split-pdf',
+    label: 'Pisah PDF',
+    description: 'Pecah satu file PDF jadi beberapa file terpisah — tentukan jumlah bagian dan rentang halaman (dari–sampai) untuk tiap bagian.',
+    icon: ICONS.splitPdf,
+    load: () => import('./tools/splitPdf.js'),
   },
   {
     id: 'compress-image',
