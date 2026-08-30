@@ -1,6 +1,22 @@
 import './style.css';
 import { el, clear, icon } from './utils/dom.js';
 
+// Vite men-hash nama file JS tiap tool per build. Kalau situs baru saja
+// di-deploy ulang, tab lama yang masih terbuka bisa mencoba fetch chunk
+// lama yang sudah tidak ada di server -> "Failed to fetch dynamically
+// imported module". Vite memancarkan event ini persis untuk kasus itu;
+// solusi resminya adalah muat ulang sekali agar dapat index.html terbaru
+// yang menunjuk ke nama file yang benar. Guard sessionStorage mencegah
+// reload berulang tanpa henti kalau masalahnya ternyata bukan cache.
+window.addEventListener('vite:preloadError', (event) => {
+  event.preventDefault();
+  const key = 'toolkit-chunk-reload-attempted';
+  if (!sessionStorage.getItem(key)) {
+    sessionStorage.setItem(key, '1');
+    window.location.reload();
+  }
+});
+
 const ICONS = {
   compressPdf:
     '<path d="M7 3h7l5 5v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M14 3v5h5" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M9 14.5c1.8-1.3 4.2-1.3 6 0M9.5 17.5h5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>',
@@ -129,9 +145,24 @@ async function activateTool(id, { focusTab = false } = {}) {
     currentUnmount = typeof result === 'function' ? result : null;
   } catch (err) {
     clear(panel);
+    const msg = String(err?.message || err || '');
+    const isStaleChunk = /fetch dynamically imported module|error loading dynamically imported module/i.test(msg);
     panel.append(
       el('div', { class: 'tool-head' }, [el('h1', {}, tool.label)]),
-      el('div', { class: 'alert alert--error' }, `Gagal memuat alat ini: ${err?.message || err}. Coba muat ulang halaman.`)
+      isStaleChunk
+        ? el('div', { class: 'alert alert--error' }, [
+            el('div', { class: 'alert__body' }, [
+              el('strong', {}, 'Situs baru saja diperbarui'),
+              el('span', {}, 'Versi halaman yang tersimpan di browser Anda sudah lama. Klik tombol di bawah untuk memuat versi terbaru.'),
+              el('button', {
+                class: 'btn btn-primary btn-sm',
+                type: 'button',
+                style: 'margin-top:10px;',
+                onClick: () => window.location.reload(),
+              }, 'Muat Ulang Halaman'),
+            ]),
+          ])
+        : el('div', { class: 'alert alert--error' }, `Gagal memuat alat ini: ${msg}. Coba muat ulang halaman.`)
     );
   }
 }
