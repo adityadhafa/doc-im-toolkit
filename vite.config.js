@@ -13,6 +13,7 @@ export default defineConfig({
           'pdf-lib': ['pdf-lib'],
           'pdfjs-dist': ['pdfjs-dist'],
           jszip: ['jszip'],
+          heic2any: ['heic2any'],
         },
       },
     },

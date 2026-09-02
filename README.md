@@ -17,8 +17,14 @@ pernah dikirim ke server manapun. Ini alternatif privasi dari tools online sejen
 5. **Ukuran Cetak Foto** — preset 3×4, 4×6, 2×3 cm + custom, dengan pilihan DPI cetak.
 6. **Gabung ke PDF** — gabungkan gambar & PDF (boleh campur) jadi satu file PDF, urutan bisa
    diatur.
-7. **Ubah Format Gambar** — konversi JPG/PNG/WEBP, latar transparan PNG otomatis diisi putih
-   saat dikonversi ke JPG.
+7. **Ubah Format Gambar** — konversi antar JPG, JPEG, PNG, dan WEBP, termasuk dari **HEIC/HEIF**
+   (format foto default iPhone). Latar transparan otomatis diisi putih saat dikonversi ke
+   JPG/JPEG.
+
+Semua tool yang menerima gambar (Kompres Foto, Ukuran Cetak Foto, Gabung ke PDF, Gambar → PDF,
+Ubah Format Gambar) juga menerima file **HEIC/HEIF** sebagai input — file akan otomatis
+didekode ke PNG di perangkat Anda (pakai `heic2any`, berbasis WebAssembly, tanpa fetch ke
+server mana pun) sebelum diproses lebih lanjut.
 
 ## Stack Teknis
 
@@ -26,6 +32,8 @@ pernah dikirim ke server manapun. Ini alternatif privasi dari tools online sejen
 - [`pdf-lib`](https://pdf-lib.js.org/) untuk membuat/menyusun PDF (via npm import, lazy-loaded)
 - [`pdfjs-dist`](https://mozilla.github.io/pdf.js/) untuk merender halaman PDF ke gambar
 - [`jszip`](https://stuk.github.io/jszip/) untuk mem-bundle hasil PDF→gambar multi-halaman
+- [`heic2any`](https://github.com/alexcorvi/heic2any) untuk mendekode HEIC/HEIF (foto iPhone)
+  sepenuhnya di browser lewat WebAssembly (libheif), tanpa fetch ke server mana pun
 - Web Worker (`src/workers/imageWorker.js`, `OffscreenCanvas`) untuk kompres/resize/convert
   gambar agar UI tidak freeze pada file besar
 - Semua library berat di-*lazy load* (`import()`) hanya saat tool terkait dibuka

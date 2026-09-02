@@ -4,6 +4,7 @@ import { validateFiles } from '../utils/validate.js';
 import { fileRow, progressBar, alertBox, resultPanel } from '../utils/ui.js';
 import { downloadBlob, createObjectUrlPool } from '../utils/download.js';
 import { runImageTask } from '../utils/workerClient.js';
+import { isHeicFile, resolveDecodableFile } from '../utils/heic.js';
 import { showToast } from '../utils/toast.js';
 
 const PRESETS = [
@@ -53,10 +54,10 @@ export function mount(container) {
   const processBtn = el('button', { class: 'btn btn-primary btn-block', type: 'button', disabled: true, onClick: startProcessing }, 'Resize Sekarang');
 
   const dropzone = createDropzone({
-    accept: 'image/jpeg,image/png,image/webp',
+    accept: 'image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif',
     multiple: true,
     title: 'Tarik & lepas foto di sini',
-    hint: 'atau — foto yang akan dicetak',
+    hint: 'atau — foto yang akan dicetak, termasuk HEIC (iPhone)',
     buttonLabel: 'Pilih Foto',
     maxHint: 'Maksimal 60 MB per file',
     onFiles: handleFiles,
@@ -75,7 +76,7 @@ export function mount(container) {
     for (const item of queue) {
       listEl.appendChild(
         fileRow(item.file, {
-          thumbUrl: urls.create(item.file),
+          thumbUrl: isHeicFile(item.file) ? undefined : urls.create(item.file),
           onRemove: () => { queue = queue.filter((q) => q !== item); renderQueue(); },
         })
       );
@@ -118,10 +119,17 @@ export function mount(container) {
       card.appendChild(bar.node);
 
       try {
+        let workFile = item.file;
+        const wasHeic = isHeicFile(item.file);
+        if (wasHeic) {
+          bar.update(0.05, 'Membaca file HEIC (format foto iPhone)…', 'Mendekode HEIC…');
+          workFile = await resolveDecodableFile(item.file);
+        }
+
         const result = await runImageTask(
           'resize-exact',
-          { file: item.file, targetW, targetH, mimeType: 'image/jpeg', quality: 0.92, background: '#ffffff' },
-          (fraction, note) => bar.update(fraction, note)
+          { file: workFile, targetW, targetH, mimeType: 'image/jpeg', quality: 0.92, background: '#ffffff' },
+          (fraction, note) => bar.update(0.1 + fraction * 0.9, note)
         );
         bar.done(`Selesai — ${targetW}×${targetH}px (${cm.w}×${cm.h} cm @ ${dpi} DPI)`);
 

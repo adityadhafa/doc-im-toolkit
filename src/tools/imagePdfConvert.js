@@ -6,6 +6,7 @@ import { formatBytes } from '../utils/format.js';
 import { downloadBlob, createObjectUrlPool } from '../utils/download.js';
 import { loadImageElement } from '../utils/imageFile.js';
 import { openPdfForRender, renderPageToCanvas, canvasToBlob, getPdfLib, friendlyPdfOpenError } from '../utils/pdfEngine.js';
+import { isHeicFile, resolveDecodableFile } from '../utils/heic.js';
 import { showToast } from '../utils/toast.js';
 
 const yieldFrame = () => new Promise((r) => setTimeout(r, 0));
@@ -41,10 +42,10 @@ export function mount(container) {
   function buildDropzone() {
     clear(dropzoneWrap);
     dropzone = createDropzone({
-      accept: mode === 'to-pdf' ? 'image/jpeg,image/png,image/webp' : 'application/pdf',
+      accept: mode === 'to-pdf' ? 'image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif' : 'application/pdf',
       multiple: true,
       title: mode === 'to-pdf' ? 'Tarik & lepas gambar di sini' : 'Tarik & lepas PDF di sini',
-      hint: mode === 'to-pdf' ? 'Setiap gambar jadi satu halaman, urutan bisa diatur' : 'Setiap halaman PDF jadi satu file gambar',
+      hint: mode === 'to-pdf' ? 'Termasuk HEIC (iPhone) — urutan halaman bisa diatur' : 'Setiap halaman PDF jadi satu file gambar',
       buttonLabel: mode === 'to-pdf' ? 'Pilih Gambar' : 'Pilih File PDF',
       maxHint: 'Maksimal 80 MB per file',
       onFiles: handleFiles,
@@ -80,7 +81,7 @@ export function mount(container) {
     }
     queue.forEach((item, idx) => {
       const row = fileRow(item.file, {
-        thumbUrl: mode === 'to-pdf' ? urls.create(item.file) : undefined,
+        thumbUrl: mode === 'to-pdf' && !isHeicFile(item.file) ? urls.create(item.file) : undefined,
         onRemove: () => { queue = queue.filter((q) => q !== item); renderQueue(); },
       });
       if (mode === 'to-pdf' && queue.length > 1) {
@@ -131,8 +132,9 @@ export function mount(container) {
       for (let i = 0; i < queue.length; i += 1) {
         const { file } = queue[i];
         bar.update((i + 1) / queue.length, `Menambahkan "${file.name}" (${i + 1}/${queue.length})…`);
-        const bytes = new Uint8Array(await file.arrayBuffer());
-        const embedded = file.type === 'image/png' || /\.png$/i.test(file.name)
+        const isPngFile = !isHeicFile(file) && (file.type === 'image/png' || /\.png$/i.test(file.name));
+        const bytes = isPngFile ? new Uint8Array(await file.arrayBuffer()) : null;
+        const embedded = isPngFile
           ? await outDoc.embedPng(bytes)
           : await outDoc.embedJpg(await reencodeAsJpegIfNeeded(file));
         const { width, height } = embedded;
@@ -237,7 +239,21 @@ export function mount(container) {
   }
 
   async function reencodeAsJpegIfNeeded(file) {
-    // WEBP tidak didukung embedJpg/embedPng pdf-lib secara langsung -> gambar ulang ke JPEG via canvas.
+    // WEBP/HEIC tidak didukung embedJpg/embedPng pdf-lib secara langsung -> gambar ulang ke JPEG via canvas.
+    if (isHeicFile(file)) {
+      const decoded = await resolveDecodableFile(file);
+      const { img, url } = await loadImageElement(decoded);
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0);
+      URL.revokeObjectURL(url);
+      const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.95));
+      return new Uint8Array(await blob.arrayBuffer());
+    }
     if (file.type === 'image/jpeg' || /\.(jpe?g)$/i.test(file.name)) {
       return new Uint8Array(await file.arrayBuffer());
     }

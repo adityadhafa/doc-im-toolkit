@@ -6,6 +6,7 @@ import { formatBytes } from '../utils/format.js';
 import { downloadBlob, createObjectUrlPool } from '../utils/download.js';
 import { loadImageElement } from '../utils/imageFile.js';
 import { getPdfLib } from '../utils/pdfEngine.js';
+import { isHeicFile, resolveDecodableFile } from '../utils/heic.js';
 import { showToast } from '../utils/toast.js';
 
 const yieldFrame = () => new Promise((r) => setTimeout(r, 0));
@@ -22,10 +23,10 @@ export function mount(container) {
   const processBtn = el('button', { class: 'btn btn-primary btn-block', type: 'button', disabled: true, onClick: startProcessing }, 'Gabungkan Jadi PDF');
 
   const dropzone = createDropzone({
-    accept: 'image/jpeg,image/png,image/webp,application/pdf',
+    accept: 'image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif,application/pdf',
     multiple: true,
     title: 'Tarik & lepas gambar dan/atau PDF di sini',
-    hint: 'Boleh campur — akan digabung berurutan',
+    hint: 'Boleh campur, termasuk HEIC (iPhone) — akan digabung berurutan',
     buttonLabel: 'Pilih File',
     maxHint: 'Maksimal 80 MB per file',
     onFiles: handleFiles,
@@ -46,7 +47,7 @@ export function mount(container) {
     }
     queue.forEach((item, idx) => {
       const row = fileRow(item.file, {
-        thumbUrl: item.isPdf ? undefined : urls.create(item.file),
+        thumbUrl: item.isPdf || isHeicFile(item.file) ? undefined : urls.create(item.file),
         onRemove: () => { queue = queue.filter((q) => q !== item); renderQueue(); },
       });
       const badge = el('span', { class: 'mono', style: 'font-size:10.5px; color:var(--ink-faint); border:1px solid var(--border); border-radius:4px; padding:1px 5px; margin-right:6px;' }, item.isPdf ? 'PDF' : 'GAMBAR');
@@ -148,6 +149,20 @@ export function mount(container) {
   }
 
   async function toJpegBytes(file) {
+    if (isHeicFile(file)) {
+      const decoded = await resolveDecodableFile(file); // PNG hasil decode HEIC
+      const { img, url } = await loadImageElement(decoded);
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0);
+      URL.revokeObjectURL(url);
+      const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.95));
+      return new Uint8Array(await blob.arrayBuffer());
+    }
     if (file.type === 'image/jpeg' || /\.(jpe?g)$/i.test(file.name)) {
       return new Uint8Array(await file.arrayBuffer());
     }

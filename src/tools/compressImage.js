@@ -5,6 +5,7 @@ import { fileRow, progressBar, alertBox, resultPanel } from '../utils/ui.js';
 import { formatBytes, parseSizeToBytes } from '../utils/format.js';
 import { downloadBlob, createObjectUrlPool } from '../utils/download.js';
 import { runImageTask } from '../utils/workerClient.js';
+import { isHeicFile, resolveDecodableFile } from '../utils/heic.js';
 import { showToast } from '../utils/toast.js';
 
 export function mount(container) {
@@ -25,10 +26,10 @@ export function mount(container) {
   const processBtn = el('button', { class: 'btn btn-primary btn-block', type: 'button', disabled: true, onClick: startProcessing }, 'Kompres Sekarang');
 
   const dropzone = createDropzone({
-    accept: 'image/jpeg,image/png,image/webp',
+    accept: 'image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif',
     multiple: true,
     title: 'Tarik & lepas foto/scan di sini',
-    hint: 'atau — JPG, PNG, atau WEBP',
+    hint: 'atau — JPG, PNG, WEBP, atau HEIC (foto iPhone)',
     buttonLabel: 'Pilih Foto',
     maxHint: 'Maksimal 60 MB per file',
     onFiles: handleFiles,
@@ -45,10 +46,9 @@ export function mount(container) {
   function renderQueue() {
     clear(listEl);
     for (const item of queue) {
-      const url = urls.create(item.file);
       listEl.appendChild(
         fileRow(item.file, {
-          thumbUrl: url,
+          thumbUrl: isHeicFile(item.file) ? undefined : urls.create(item.file),
           onRemove: () => {
             queue = queue.filter((q) => q !== item);
             renderQueue();
@@ -80,13 +80,21 @@ export function mount(container) {
       card.appendChild(bar.node);
 
       try {
-        const beforeUrl = urls.create(item.file);
-        const mimeType = item.file.type === 'image/png' ? 'image/png' : (item.file.type === 'image/webp' ? 'image/webp' : 'image/jpeg');
+        let workFile = item.file;
+        const wasHeic = isHeicFile(item.file);
+        if (wasHeic) {
+          bar.update(0.05, 'Membaca file HEIC (format foto iPhone)…', 'Mendekode HEIC…');
+          workFile = await resolveDecodableFile(item.file);
+        }
+
+        const mimeType = wasHeic
+          ? 'image/jpeg'
+          : item.file.type === 'image/png' ? 'image/png' : (item.file.type === 'image/webp' ? 'image/webp' : 'image/jpeg');
 
         const result = await runImageTask(
           'compress-to-target',
-          { file: item.file, targetBytes, mimeType },
-          (fraction, note) => bar.update(fraction, note)
+          { file: workFile, targetBytes, mimeType },
+          (fraction, note) => bar.update(0.1 + fraction * 0.9, note)
         );
         bar.done(`Selesai — ${result.width}×${result.height}px`);
 

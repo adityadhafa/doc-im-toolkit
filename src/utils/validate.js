@@ -1,4 +1,4 @@
-const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
 const PDF_TYPE = 'application/pdf';
 
 export class ValidationError extends Error {}
@@ -25,9 +25,9 @@ export function validateFile(file, { accept = 'image', maxSizeMB = 60 } = {}) {
   const ext = extOf(file.name);
 
   if (accept === 'image') {
-    const okType = IMAGE_TYPES.includes(file.type) || ['jpg', 'jpeg', 'png', 'webp'].includes(ext);
+    const okType = IMAGE_TYPES.includes(file.type) || ['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif'].includes(ext);
     if (!okType) {
-      return `"${file.name}" bukan file gambar yang didukung. Gunakan format JPG, PNG, atau WEBP.`;
+      return `"${file.name}" bukan file gambar yang didukung. Gunakan format JPG, JPEG, PNG, WEBP, atau HEIC.`;
     }
   } else if (accept === 'pdf') {
     const okType = file.type === PDF_TYPE || ext === 'pdf';
@@ -38,9 +38,9 @@ export function validateFile(file, { accept = 'image', maxSizeMB = 60 } = {}) {
     const okType =
       IMAGE_TYPES.includes(file.type) ||
       file.type === PDF_TYPE ||
-      ['jpg', 'jpeg', 'png', 'webp', 'pdf'].includes(ext);
+      ['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif', 'pdf'].includes(ext);
     if (!okType) {
-      return `"${file.name}" bukan gambar atau PDF yang didukung. Gunakan JPG, PNG, WEBP, atau PDF.`;
+      return `"${file.name}" bukan gambar atau PDF yang didukung. Gunakan JPG, PNG, WEBP, HEIC, atau PDF.`;
     }
   }
 
