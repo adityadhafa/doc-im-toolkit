@@ -161,12 +161,43 @@ async function convertFormat({ file, mimeType, quality, background, id }) {
   );
 }
 
+/**
+ * Hitung rekomendasi target ukuran untuk satu gambar: turunkan resolusi
+ * hanya jika sudah lebih besar dari ambang aman-OCR (2000px sisi terpanjang),
+ * lalu encode JPEG kualitas 82% — titik seimbang yang umumnya masih tajam
+ * untuk dibaca manusia, AI, maupun OCR, tapi ukurannya sudah jauh lebih kecil
+ * dari foto/scan mentah kamera HP (yang sering 8-12 MP tanpa kompresi memadai).
+ */
+async function recommendSize({ file, id }) {
+  const bitmap = await decodeToBitmap(file);
+  const OCR_SAFE_LONG_EDGE = 2000;
+  const longEdge = Math.max(bitmap.width, bitmap.height);
+  const scale = longEdge > OCR_SAFE_LONG_EDGE ? OCR_SAFE_LONG_EDGE / longEdge : 1;
+  const w = Math.max(1, Math.round(bitmap.width * scale));
+  const h = Math.max(1, Math.round(bitmap.height * scale));
+  const quality = 0.82;
+  self.postMessage({ id, type: 'progress', fraction: 0.5, note: `Mencoba ${w}×${h}px @ kualitas ${(quality * 100).toFixed(0)}%…` });
+  const canvas = drawToCanvas(bitmap, w, h, { fit: 'contain' });
+  const blob = await encode(canvas, 'image/jpeg', quality);
+  self.postMessage({
+    id,
+    type: 'recommend-done',
+    recommendedBytes: blob.size,
+    width: w,
+    height: h,
+    sourceWidth: bitmap.width,
+    sourceHeight: bitmap.height,
+    sourceBytes: file.size,
+  });
+}
+
 self.onmessage = async (e) => {
   const { id, type } = e.data;
   try {
     if (type === 'compress-to-target') await compressToTarget(e.data);
     else if (type === 'resize-exact') await resizeExact(e.data);
     else if (type === 'convert-format') await convertFormat(e.data);
+    else if (type === 'recommend-size') await recommendSize(e.data);
     else throw new Error('Jenis tugas worker tidak dikenali.');
   } catch (err) {
     self.postMessage({ id, type: 'error', message: err?.message || String(err) });

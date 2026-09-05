@@ -11,7 +11,7 @@ function getWorker() {
       if (!task) return;
       if (type === 'progress') {
         task.onProgress?.(e.data.fraction, e.data.note);
-      } else if (type === 'done') {
+      } else if (type === 'done' || type === 'recommend-done') {
         pending.delete(id);
         task.resolve(e.data);
       } else if (type === 'error') {

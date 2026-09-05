@@ -1,4 +1,4 @@
-import { el, clear } from '../utils/dom.js';
+import { el, clear, icon } from '../utils/dom.js';
 import { createDropzone } from '../utils/dropzone.js';
 import { validateFiles, describePdfError } from '../utils/validate.js';
 import { fileRow, progressBar, alertBox, resultPanel } from '../utils/ui.js';
@@ -25,6 +25,59 @@ export function mount(container) {
   ]);
 
   const processBtn = el('button', { class: 'btn btn-primary btn-block', type: 'button', disabled: true, onClick: startProcessing }, 'Kompres PDF Sekarang');
+
+  const LIGHTBULB_ICON =
+    '<path d="M9 18h6M10 21h4M8 14a5 5 0 1 1 8 0c-.8.8-1.5 1.6-1.7 2.6a.9.9 0 0 1-.9.7h-2.8a.9.9 0 0 1-.9-.7C9.5 15.6 8.8 14.8 8 14Z" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>';
+  const recommendBtnLabel = el('span', {}, 'Cek Rekomendasi Ukuran');
+  const recommendBtn = el('button', { class: 'btn btn-secondary btn-sm', type: 'button', style: 'margin-top:10px;', onClick: handleRecommend }, [icon(LIGHTBULB_ICON, 15), recommendBtnLabel]);
+  const recommendResultEl = el('div', { style: 'margin-top:10px;' });
+
+  function fillTargetFromBytes(bytes) {
+    if (bytes >= 1024 * 1024) {
+      unitSelect.value = 'MB';
+      targetInput.value = String(Math.ceil((bytes / 1024 / 1024) * 10) / 10);
+    } else {
+      unitSelect.value = 'KB';
+      targetInput.value = String(Math.max(20, Math.ceil(bytes / 1024 / 10) * 10));
+    }
+  }
+
+  async function handleRecommend() {
+    if (!queue.length) {
+      showToast('Upload PDF dulu untuk mengecek rekomendasi.', 'error');
+      return;
+    }
+    const target = queue[0].file;
+    recommendBtn.disabled = true;
+    recommendBtnLabel.textContent = 'Menganalisis…';
+    clear(recommendResultEl);
+    try {
+      const rec = await computeRecommendation(target);
+      const percent = Math.max(0, Math.round((1 - rec.recommendedBytes / target.size) * 100));
+      recommendResultEl.appendChild(
+        el('div', { class: 'tip-box' }, [
+          icon(LIGHTBULB_ICON, 18, 'tip-box__icon'),
+          el('div', {}, [
+            el('strong', {}, `Rekomendasi: ~${formatBytes(rec.recommendedBytes)}`),
+            el('p', {},
+              `Resolusi dijaga di sekitar ${rec.dpi} DPI dengan kualitas gambar ${(rec.quality * 100).toFixed(0)}%${percent > 0 ? ` — turun sekitar ${percent}% dari ${formatBytes(target.size)}` : ''}. Estimasi dari ${rec.sampled} dari ${rec.numPages} halaman yang diperiksa. Ukuran segini umumnya masih sangat jelas dibaca teks, AI, maupun OCR/sistem administratif.${queue.length > 1 ? ' Dihitung dari file pertama di antrean.' : ''}`
+            ),
+            el('button', {
+              class: 'btn btn-primary btn-sm', type: 'button', style: 'margin-top:9px;',
+              onClick: () => { fillTargetFromBytes(rec.recommendedBytes); showToast('Target ukuran diisi dari rekomendasi.'); },
+            }, 'Pakai Rekomendasi Ini'),
+          ]),
+        ])
+      );
+    } catch (err) {
+      const msg = err?.message === 'PDF_PASSWORD' || err?.message === 'PDF_INVALID'
+        ? friendlyPdfOpenError(err, target.name)
+        : describePdfError(err, target.name);
+      recommendResultEl.appendChild(alertBox(msg, { title: 'Gagal cek rekomendasi' }));
+    }
+    recommendBtn.disabled = false;
+    recommendBtnLabel.textContent = 'Cek Rekomendasi Ukuran';
+  }
 
   const dropzone = createDropzone({
     accept: 'application/pdf',
@@ -124,6 +177,8 @@ export function mount(container) {
       el('label', {}, 'Target ukuran akhir'),
       el('div', { class: 'input-row' }, [targetInput, unitSelect]),
       el('div', { class: 'field-hint' }, 'PDF akan diubah menjadi gambar terkompres per halaman lalu disusun ulang — cocok untuk PDF hasil scan.'),
+      recommendBtn,
+      recommendResultEl,
     ]),
     processBtn,
   ]);
@@ -135,6 +190,44 @@ export function mount(container) {
   renderQueue();
 
   return function unmount() { urls.revokeAll(); };
+
+  /**
+   * Estimasi ukuran akhir "aman-OCR": render sampel halaman pada ~200 DPI
+   * (ambang umum agar teks tetap terbaca akurat oleh OCR/AI) dengan kualitas
+   * JPEG 78%, lalu ekstrapolasi ke seluruh halaman. Hanya sampel beberapa
+   * halaman (bukan semua) supaya cek rekomendasi tetap cepat untuk PDF tebal.
+   */
+  async function computeRecommendation(file) {
+    const buf = await file.arrayBuffer();
+    const pdfDoc = await openPdfForRender(buf.slice(0));
+    const numPages = pdfDoc.numPages;
+    const OCR_SAFE_DPI = 200;
+    const scale = OCR_SAFE_DPI / 72;
+    const quality = 0.78;
+
+    const maxSamples = 5;
+    const sampleIndices = [];
+    if (numPages <= maxSamples) {
+      for (let p = 1; p <= numPages; p += 1) sampleIndices.push(p);
+    } else {
+      for (let i = 0; i < maxSamples; i += 1) {
+        const p = 1 + Math.round((i * (numPages - 1)) / (maxSamples - 1));
+        if (!sampleIndices.includes(p)) sampleIndices.push(p);
+      }
+    }
+
+    let totalSampleBytes = 0;
+    for (const p of sampleIndices) {
+      recommendBtnLabel.textContent = `Memeriksa halaman ${p}…`;
+      const canvas = await renderPageToCanvas(pdfDoc, p, scale);
+      const blob = await canvasToBlob(canvas, 'image/jpeg', quality);
+      totalSampleBytes += blob.size;
+      await yieldFrame();
+    }
+    const avgPerPage = totalSampleBytes / sampleIndices.length;
+    const recommendedBytes = Math.round(avgPerPage * numPages);
+    return { recommendedBytes, numPages, dpi: OCR_SAFE_DPI, quality, sampled: sampleIndices.length };
+  }
 
   async function compressPdfFile(file, targetBytes, onProgress) {
     const buf = await file.arrayBuffer();

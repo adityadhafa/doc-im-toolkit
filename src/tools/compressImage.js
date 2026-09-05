@@ -25,6 +25,58 @@ export function mount(container) {
 
   const processBtn = el('button', { class: 'btn btn-primary btn-block', type: 'button', disabled: true, onClick: startProcessing }, 'Kompres Sekarang');
 
+  const LIGHTBULB_ICON =
+    '<path d="M9 18h6M10 21h4M8 14a5 5 0 1 1 8 0c-.8.8-1.5 1.6-1.7 2.6a.9.9 0 0 1-.9.7h-2.8a.9.9 0 0 1-.9-.7C9.5 15.6 8.8 14.8 8 14Z" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>';
+  const recommendBtnLabel = el('span', {}, 'Cek Rekomendasi Ukuran');
+  const recommendBtn = el('button', { class: 'btn btn-secondary btn-sm', type: 'button', style: 'margin-top:10px;', onClick: handleRecommend }, [icon(LIGHTBULB_ICON, 15), recommendBtnLabel]);
+  const recommendResultEl = el('div', { style: 'margin-top:10px;' });
+
+  function fillTargetFromBytes(bytes) {
+    if (bytes >= 1024 * 1024) {
+      unitSelect.value = 'MB';
+      targetInput.value = String(Math.ceil((bytes / 1024 / 1024) * 10) / 10);
+    } else {
+      unitSelect.value = 'KB';
+      targetInput.value = String(Math.max(10, Math.ceil(bytes / 1024 / 10) * 10));
+    }
+  }
+
+  async function handleRecommend() {
+    if (!queue.length) {
+      showToast('Upload foto dulu untuk mengecek rekomendasi.', 'error');
+      return;
+    }
+    const target = queue[0].file;
+    recommendBtn.disabled = true;
+    recommendBtnLabel.textContent = 'Menganalisis…';
+    clear(recommendResultEl);
+    try {
+      let workFile = target;
+      if (isHeicFile(target)) workFile = await resolveDecodableFile(target);
+      const res = await runImageTask('recommend-size', { file: workFile });
+      const percent = Math.max(0, Math.round((1 - res.recommendedBytes / target.size) * 100));
+      recommendResultEl.appendChild(
+        el('div', { class: 'tip-box' }, [
+          icon(LIGHTBULB_ICON, 18, 'tip-box__icon'),
+          el('div', {}, [
+            el('strong', {}, `Rekomendasi: ~${formatBytes(res.recommendedBytes)}`),
+            el('p', {},
+              `${res.width}×${res.height}px, kualitas seimbang (JPEG 82%)${percent > 0 ? ` — turun sekitar ${percent}% dari ${formatBytes(target.size)}` : ''}. Resolusi ini umumnya masih sangat tajam untuk dibaca manusia, AI, maupun OCR/sistem administratif.${queue.length > 1 ? ' Dihitung dari file pertama di antrean.' : ''}`
+            ),
+            el('button', {
+              class: 'btn btn-primary btn-sm', type: 'button', style: 'margin-top:9px;',
+              onClick: () => { fillTargetFromBytes(res.recommendedBytes); showToast('Target ukuran diisi dari rekomendasi.'); },
+            }, 'Pakai Rekomendasi Ini'),
+          ]),
+        ])
+      );
+    } catch (err) {
+      recommendResultEl.appendChild(alertBox(err?.message || 'Gagal menganalisis gambar ini.', { title: 'Gagal cek rekomendasi' }));
+    }
+    recommendBtn.disabled = false;
+    recommendBtnLabel.textContent = 'Cek Rekomendasi Ukuran';
+  }
+
   const dropzone = createDropzone({
     accept: 'image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif',
     multiple: true,
@@ -142,6 +194,8 @@ export function mount(container) {
       el('label', {}, 'Target ukuran akhir'),
       el('div', { class: 'input-row' }, [targetInput, unitSelect]),
       el('div', { class: 'field-hint' }, 'Contoh: form CPNS/SSCASN biasanya membatasi foto maksimal 200 KB.'),
+      recommendBtn,
+      recommendResultEl,
     ]),
     processBtn,
   ]);
